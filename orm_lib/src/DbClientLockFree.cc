@@ -60,6 +60,7 @@ DbClientLockFree::DbClientLockFree(const std::string &connInfo,
             for (size_t i = 0; i < numberOfConnections_; ++i)
                 connectionHolders_.push_back(newConnection());
         });
+
     }
     else
     {
@@ -69,9 +70,9 @@ DbClientLockFree::DbClientLockFree(const std::string &connInfo,
 
 DbClientLockFree::~DbClientLockFree() noexcept
 {
-    for (auto &conn : connections_)
-    {
-        conn->disconnect();
+    for (auto &conn: connections_) {
+        if(conn->status() != ConnectStatus::Bad)
+            conn->disconnect();
     }
 }
 
@@ -470,6 +471,13 @@ DbConnectionPtr DbClientLockFree::newConnection()
         if (!connPtr)
             return;
         thisPtr->handleNewTask(connPtr);
+    });
+
+    // disconnect before loop destruction
+    loop_->runOnQuit([connPtr](){
+        if(connPtr->status() != ConnectStatus::Bad) {
+            connPtr->disconnect();
+        }
     });
     // std::cout<<"newConn end"<<connPtr<<std::endl;
     return connPtr;
