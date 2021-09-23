@@ -284,7 +284,7 @@ void PgConnection::execSqlInLoop(
 void PgConnection::handleRead()
 {
     loop_->assertInLoopThread();
-    std::shared_ptr<PGresult> res;
+    std::shared_ptr<PGresult> res, last_res;
 
     if (!PQconsumeInput(connectionPtr_.get()))
     {
@@ -304,9 +304,8 @@ void PgConnection::handleRead()
         // need read more data from socket;
         return;
     }
-    while ((res = std::shared_ptr<PGresult>(PQgetResult(connectionPtr_.get()),
-                                            [](PGresult *p) { PQclear(p); })))
-    {
+    while (res = std::shared_ptr<PGresult>(PQgetResult(connectionPtr_.get()),
+                                            [](PGresult *p) { PQclear(p); })) {
         auto type = PQresultStatus(res.get());
         if (type == PGRES_BAD_RESPONSE || type == PGRES_FATAL_ERROR)
         {
@@ -323,13 +322,17 @@ void PgConnection::handleRead()
             {
                 if (!isRreparingStatement_)
                 {
-                    auto r = makeResult(res);
-                    callback_(r);
-                    callback_ = nullptr;
-                    exceptionCallback_ = nullptr;
+                    last_res = std::move(res);
                 }
             }
         }
+    }
+    if (last_res)
+    {
+        auto r = makeResult(last_res);
+        callback_(r);
+        callback_ = nullptr;
+        exceptionCallback_ = nullptr;
     }
     if (isWorking_)
     {
