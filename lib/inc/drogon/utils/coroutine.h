@@ -24,6 +24,7 @@
 #include <exception>
 #include <future>
 #include <mutex>
+#include <list>
 #include <type_traits>
 
 namespace drogon
@@ -704,5 +705,37 @@ struct is_resumable<AsyncTask, std::void_t<AsyncTask>> : std::true_type
 
 template <typename T>
 constexpr bool is_resumable_v = is_resumable<T>::value;
+
+/**
+ * @brief Runs a coroutine from a regular function
+ * @param coro A coroutine that is awaitable
+ */
+template <typename Coro>
+void async_run(Coro &&coro)
+{
+    using CoroValueType = std::decay_t<Coro>;
+    auto functor = [](CoroValueType coro) -> AsyncTask {
+        auto frame = coro();
+
+        using FrameType = std::decay_t<decltype(frame)>;
+        static_assert(is_awaitable_v<FrameType>);
+
+        co_await frame;
+        co_return;
+    };
+    functor(std::forward<Coro>(coro));
+}
+
+/**
+ * @brief returns a function that calls a coroutine
+ * @param Coro A coroutine that is awaitable
+ */
+template <typename Coro>
+std::function<void()> async_func(Coro &&coro)
+{
+    return [coro = std::forward<Coro>(coro)]() mutable {
+        async_run(std::move(coro));
+    };
+}
 
 }  // namespace drogon

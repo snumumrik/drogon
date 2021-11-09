@@ -18,6 +18,7 @@ option(BUILD_ORM "Build orm" ON)
 option(COZ_PROFILING "Use coz for profiling" OFF)
 option(BUILD_DROGON_SHARED "Build drogon as a shared lib" OFF)
 option(BUILD_DOC "Build Doxygen documentation" OFF)
+option(BUILD_BROTLI "Build Brotli" ON)
 
 include(CMakeDependentOption)
 CMAKE_DEPENDENT_OPTION(BUILD_POSTGRESQL "Build with postgresql support" ON "BUILD_ORM" OFF)
@@ -28,7 +29,7 @@ CMAKE_DEPENDENT_OPTION(BUILD_REDIS "Build with redis support" ON "BUILD_ORM" OFF
 
 set(DROGON_MAJOR_VERSION 1)
 set(DROGON_MINOR_VERSION 7)
-set(DROGON_PATCH_VERSION 2)
+set(DROGON_PATCH_VERSION 3)
 set(DROGON_VERSION
     ${DROGON_MAJOR_VERSION}.${DROGON_MINOR_VERSION}.${DROGON_PATCH_VERSION})
 set(DROGON_VERSION_STRING "${DROGON_VERSION}")
@@ -190,7 +191,11 @@ if(NEED_BOOST_FS)
     option(HAS_STD_FILESYSTEM_PATH "use boost::filesystem" OFF)
 else()
     option(HAS_STD_FILESYSTEM_PATH "use std::filesystem" ON)
-    target_link_libraries(${PROJECT_NAME} PUBLIC std::filesystem)
+    # HACK: Needed to be compiled on Yocto Linux
+    get_property(CAN_LINK_FS TARGET std::filesystem PROPERTY INTERFACE_LINK_LIBRARIES DEFINED)
+    if ( CAN_LINK_FS )
+      target_link_libraries(${PROJECT_NAME} PUBLIC std::filesystem)
+    endif()
 endif()
 
 # jsoncpp
@@ -221,12 +226,14 @@ endif (NOT ${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD"
     AND NOT ${CMAKE_SYSTEM_NAME} STREQUAL "OpenBSD"
     AND NOT WIN32)
 
-find_package(Brotli)
-if (Brotli_FOUND)
-    message(STATUS "Brotli found")
-    add_definitions(-DUSE_BROTLI)
-    target_link_libraries(${PROJECT_NAME} PRIVATE Brotli_lib)
-endif (Brotli_FOUND)
+if (BUILD_BROTLI)
+    find_package(Brotli)
+    if (Brotli_FOUND)
+        message(STATUS "Brotli found")
+        add_definitions(-DUSE_BROTLI)
+        target_link_libraries(${PROJECT_NAME} PRIVATE Brotli_lib)
+    endif (Brotli_FOUND)
+endif (BUILD_BROTLI)
 
 set(DROGON_SOURCES
     lib/src/AOPAdvice.cc
@@ -256,6 +263,7 @@ set(DROGON_SOURCES
     lib/src/MultiPart.cc
     lib/src/NotFound.cc
     lib/src/PluginsManager.cc
+    lib/src/RangeParser.cc
     lib/src/SecureSSLRedirector.cc
     lib/src/AccessLogger.cc
     lib/src/SessionManager.cc
