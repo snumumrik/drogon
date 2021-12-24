@@ -29,7 +29,7 @@ CMAKE_DEPENDENT_OPTION(BUILD_REDIS "Build with redis support" ON "BUILD_ORM" OFF
 
 set(DROGON_MAJOR_VERSION 1)
 set(DROGON_MINOR_VERSION 7)
-set(DROGON_PATCH_VERSION 3)
+set(DROGON_PATCH_VERSION 4)
 set(DROGON_VERSION
     ${DROGON_MAJOR_VERSION}.${DROGON_MINOR_VERSION}.${DROGON_PATCH_VERSION})
 set(DROGON_VERSION_STRING "${DROGON_VERSION}")
@@ -192,9 +192,11 @@ if(NEED_BOOST_FS)
 else()
     option(HAS_STD_FILESYSTEM_PATH "use std::filesystem" ON)
     # HACK: Needed to be compiled on Yocto Linux
-    get_property(CAN_LINK_FS TARGET std::filesystem PROPERTY INTERFACE_LINK_LIBRARIES SET)
-    if ( CAN_LINK_FS )
-      target_link_libraries(${PROJECT_NAME} PUBLIC std::filesystem)
+    if(TARGET std::filesystem)
+      get_property(CAN_LINK_FS TARGET std::filesystem PROPERTY INTERFACE_LINK_LIBRARIES SET)
+      if ( CAN_LINK_FS )
+        target_link_libraries(${PROJECT_NAME} PUBLIC std::filesystem)
+      endif()
     endif()
 endif()
 
